@@ -1,6 +1,11 @@
 import streamlit as st
 from quiz_core import QuizSession
-from database import initialize_database, save_quiz_result
+from database import (
+    initialize_database,
+    save_quiz_result,
+    import_words_from_excel,
+    get_connection
+)
 
 # Ensure DB exists
 initialize_database()
