@@ -11,3 +11,4 @@ __pycache__/
 # Generated data files
 quiz_history.json
 word_stats.json
+database.db
