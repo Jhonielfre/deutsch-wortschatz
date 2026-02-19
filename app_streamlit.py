@@ -10,7 +10,7 @@ from database import (
 st.set_page_config(page_title="Deutsch Wortschatz Trainer")
 
 # ---------------------------
-# Database Initialization (Run Once)
+# Database Initialization
 # ---------------------------
 
 @st.cache_resource
@@ -32,37 +32,42 @@ setup_database()
 # Session State Setup
 # ---------------------------
 
-if "page" not in st.session_state:
-    st.session_state.page = "home"
-
 if "quiz" not in st.session_state:
     st.session_state.quiz = None
 
+if "current_question" not in st.session_state:
+    st.session_state.current_question = None
+
+if "mode" not in st.session_state:
+    st.session_state.mode = "home"   # home, asking, feedback, results
+
 # ---------------------------
-# Home Page
+# Home
 # ---------------------------
 
-if st.session_state.page == "home":
+if st.session_state.mode == "home":
 
     st.title("Deutsch Wortschatz Trainer")
 
     if st.button("Start Quiz"):
         st.session_state.quiz = QuizSession()
-        st.session_state.page = "quiz"
+        st.session_state.current_question = (
+            st.session_state.quiz.generate_question()
+        )
+        st.session_state.mode = "asking"
         st.rerun()
 
 # ---------------------------
-# Quiz Page
+# Asking Mode
 # ---------------------------
 
-elif st.session_state.page == "quiz":
+elif st.session_state.mode == "asking":
 
     quiz = st.session_state.quiz
-
-    question = quiz.generate_question()
+    question = st.session_state.current_question
 
     if question is None:
-        st.session_state.page = "results"
+        st.session_state.mode = "results"
         st.rerun()
 
     st.subheader(question["question_text"])
@@ -70,30 +75,63 @@ elif st.session_state.page == "quiz":
     if question["options"]:
         user_answer = st.radio(
             "Choose an option:",
-            question["options"]
+            question["options"],
+            key="answer_input"
         )
     else:
-        user_answer = st.text_input("Your answer:")
+        user_answer = st.text_input(
+            "Your answer:",
+            key="answer_input"
+        )
 
     if st.button("Submit"):
 
         is_correct, correct = quiz.submit_answer(user_answer)
 
-        if is_correct:
-            st.success("Correct!")
-        else:
-            st.error(f"Incorrect. Correct answer: {correct}")
+        st.session_state.feedback = {
+            "is_correct": is_correct,
+            "correct": correct
+        }
 
-        st.write(f"Score: {quiz.score} / {quiz.num_questions}")
+        st.session_state.mode = "feedback"
+        st.rerun()
 
 # ---------------------------
-# Results Page
+# Feedback Mode
 # ---------------------------
 
-elif st.session_state.page == "results":
+elif st.session_state.mode == "feedback":
 
     quiz = st.session_state.quiz
+    feedback = st.session_state.feedback
 
+    if feedback["is_correct"]:
+        st.success("Correct!")
+    else:
+        st.error(f"Incorrect. Correct answer: {feedback['correct']}")
+
+    st.write(f"Score: {quiz.score} / {quiz.num_questions}")
+
+    if st.button("Next Question"):
+
+        next_q = quiz.generate_question()
+
+        if next_q is None:
+            st.session_state.mode = "results"
+        else:
+            st.session_state.current_question = next_q
+            st.session_state.mode = "asking"
+
+        st.session_state.answer_input = ""
+        st.rerun()
+
+# ---------------------------
+# Results
+# ---------------------------
+
+elif st.session_state.mode == "results":
+
+    quiz = st.session_state.quiz
     percentage = (quiz.score / quiz.num_questions) * 100
 
     save_quiz_result(quiz.score, quiz.num_questions)
@@ -103,7 +141,7 @@ elif st.session_state.page == "results":
     st.write(f"Percentage: {percentage:.1f}%")
 
     if st.button("Back to Home"):
-        st.session_state.page = "home"
+        st.session_state.mode = "home"
         st.session_state.quiz = None
+        st.session_state.current_question = None
         st.rerun()
-        
