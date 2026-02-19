@@ -7,10 +7,26 @@ from database import (
     get_connection
 )
 
-# Ensure DB exists
-initialize_database()
-
 st.set_page_config(page_title="Deutsch Wortschatz Trainer")
+
+# ---------------------------
+# Database Initialization (Run Once)
+# ---------------------------
+
+@st.cache_resource
+def setup_database():
+    initialize_database()
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM words")
+    count = cursor.fetchone()[0]
+    conn.close()
+
+    if count == 0:
+        import_words_from_excel()
+
+setup_database()
 
 # ---------------------------
 # Session State Setup
@@ -51,8 +67,6 @@ elif st.session_state.page == "quiz":
 
     st.subheader(question["question_text"])
 
-    user_answer = None
-
     if question["options"]:
         user_answer = st.radio(
             "Choose an option:",
@@ -71,8 +85,6 @@ elif st.session_state.page == "quiz":
             st.error(f"Incorrect. Correct answer: {correct}")
 
         st.write(f"Score: {quiz.score} / {quiz.num_questions}")
-
-        st.button("Next Question", on_click=lambda: None)
 
 # ---------------------------
 # Results Page
@@ -94,3 +106,4 @@ elif st.session_state.page == "results":
         st.session_state.page = "home"
         st.session_state.quiz = None
         st.rerun()
+        
